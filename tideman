@@ -32,6 +32,8 @@ void add_pairs(void);
 void sort_pairs(void);
 void lock_pairs(void);
 void print_winner(void);
+bool detect_cycle(int start, int row_to_search);
+
 
 int main(int argc, string argv[])
 {
@@ -92,6 +94,14 @@ int main(int argc, string argv[])
     add_pairs();
     sort_pairs();
     lock_pairs();
+    for (int i = 0; i < candidate_count; i++)
+    {
+        for (int j = 0; j < candidate_count; j++)
+        {
+            printf("%d ", locked[i][j]);
+        }
+        printf("\n");
+    }
     print_winner();
     return 0;
 }
@@ -221,71 +231,24 @@ void sort_pairs(void)
 // Lock pairs into the candidate graph in order, without creating cycles
 void lock_pairs(void)
 {
-    bool lock_pairs_copy[MAX][MAX];
 
-
+    // Set all entries in locked to false
     for (int i = 0; i < candidate_count; i++)
     {
         for (int j = 0; j < candidate_count; j++)
         {
-            if (i == j)
-            {
-                lock_pairs_copy[i][j] = false;
-            } else
-            {
-                lock_pairs_copy[i][j] = true;
-            }
+            locked[i][j] = false;
         }
     }
 
-    for (int i = 0; i < candidate_count; i++)
-    {
-        for (int j = 0; j < candidate_count; j++)
-        {
-            if (i == j)
-            {
-                locked[i][j] = false;
-            } else
-            {
-                locked[i][j] = false;
-            }
-        }
-    }
-
+    // Iterate over each candidate and detect cycle
     for (int i = 0; i < pair_count; i++)
     {
-        bool placeholder_one = lock_pairs_copy[pairs[i].winner][pairs[i].loser];
-        bool placeholder_two = lock_pairs_copy[pairs[i].loser][pairs[i].winner];
-
-        lock_pairs_copy[pairs[i].winner][pairs[i].loser] = true;
-        lock_pairs_copy[pairs[i].loser][pairs[i].winner] = false;
-
-        // Todo: Iterate over each line and count the false
-        int sources_count = 0;
-        for (int j = 0; j < candidate_count; j++)
-        {
-            int false_count = 0;
-            for (int k = 0; k < candidate_count; k++)
+        locked[pairs[i].winner][pairs[i].loser] = true;
+        if (detect_cycle(pairs[i].winner, pairs[i].winner))
             {
-                if (lock_pairs_copy[j][k] == false)
-                {
-                    false_count++;
-                }
+                locked[pairs[i].winner][pairs[i].loser] = false;
             }
-            if (false_count == 1)
-            {
-                sources_count++;
-            }
-        }
-        if (sources_count != 0)
-        {
-            locked[pairs[i].winner][pairs[i].loser] = true;
-            locked[pairs[i].loser][pairs[i].winner] = false;
-        } else
-        {
-            lock_pairs_copy[pairs[i].winner][pairs[i].loser] = placeholder_one;
-            lock_pairs_copy[pairs[i].loser][pairs[i].winner] = placeholder_two;
-        }
     }
     return;
 }
@@ -293,40 +256,42 @@ void lock_pairs(void)
 // Print the winner of the election
 void print_winner(void)
 {
-    int tie_check = 1;
-    int victory_strength_check = 0;
-    for (int i = 0; i < pair_count; i++)
+    int lost_check = 0;
+    for (int i = 0; i < candidate_count; i++)
     {
-        if (i == 0)
-        {
-            victory_strength_check = preferences[pairs[i].winner][pairs[i].loser];
-        }
-        if (preferences[pairs[i].winner][pairs[i].loser] == victory_strength_check)
-        {
-            tie_check++;
-        }
-    }
-    if (pair_count == candidate_count && tie_check == pair_count)
-    {
-        printf("Tie\n");
-        return;
-    }
-    int source;
+        lost_check = 0;
         for (int j = 0; j < candidate_count; j++)
         {
-            int false_count = 0;
-            for (int k = 0; k < candidate_count; k++)
+            if (locked[j][i])
             {
-                if (locked[j][k] == false)
-                {
-                    false_count++;
-                }
-            }
-            if (false_count == 1)
-            {
-                source = j;
+                lost_check++;
             }
         }
-    printf("%s\n",candidates[source]);
-    return;
+        if (lost_check == 0)
+        {
+            printf("%s\n", candidates[i]);
+            return;
+        }
+    }
+}
+
+bool detect_cycle(int start, int row_to_search)
+{
+    if (locked[row_to_search][start])
+    {
+        return true;
+    } else
+    {
+        for (int i = 0; i < candidate_count; i++)
+        {
+            if (locked[row_to_search][i])
+            {
+                if (detect_cycle(start, i))
+                {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
